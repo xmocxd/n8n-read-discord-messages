@@ -1,0 +1,678 @@
+{
+  "name": "Read Disc Messages for User - Form",
+  "nodes": [
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "3144c5e4-25f6-495b-9b46-96b59525ab36",
+              "leftValue": "={{ $json.hasMore }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1024,
+        -816
+      ],
+      "id": "0151abab-d6d8-4e50-a259-a0dbb0dec734",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "533a87ff-66ce-4e56-8905-43a5c4cb5869",
+              "name": "channelId",
+              "value": "={{ $json.body.channel_id }}",
+              "type": "string"
+            },
+            {
+              "id": "c2e31fcc-4ea2-4d8a-a63b-e54c18d4741d",
+              "name": "myUserId",
+              "value": "SANITIZED_USER_ID",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        320,
+        -1088
+      ],
+      "id": "57da9872-722b-4cdc-a7a3-b0bb926a7905",
+      "name": "Set User Info"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "myMessages",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        800,
+        -816
+      ],
+      "id": "5ec01dc9-8fd5-42a7-be19-1adc4926a7a2",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "url": "=https://discord.com/api/v10/channels/{{ $('Set User Info').item.json.channelId }}/messages",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "100"
+            },
+            {
+              "name": "before",
+              "value": "={{ $json.before || undefined }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bot {{ $env.DISCORD_BOT_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        352,
+        -768
+      ],
+      "id": "5d5c4c53-9de8-4689-846a-af07530ac6e9",
+      "name": "Get Disc Messages",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Get the data coming directly into this node\nconst inputItems = $input.all();\n\n// 2. Safely get your User ID \nlet targetUserId = \"\";\ntry {\n  targetUserId = $(\"Set User Info\").first().json.myUserId; \n} catch (e) {\n  throw new Error(\"Could not find node named 'Set User Info'. Check the name of your first node!\");\n}\n\n// 3. Filter the messages\nconst myMessages = inputItems.filter(i => i.json.author && i.json.author.id === targetUserId);\n\n// 4. Find the oldest ID for the next loop\nconst oldestId = inputItems.length > 0 ? inputItems[inputItems.length - 1].json.id : null;\n\n// 5. Return the result with attachment support\nreturn {\n  myMessages: myMessages.map(m => {\n    // Extract attachment URLs and join them with a comma and space\n    const attachmentLinks = m.json.attachments && m.json.attachments.length > 0\n      ? m.json.attachments.map(a => a.url).join(', ')\n      : \"\";\n\n    return { \n      id: m.json.id,\n      content: m.json.content, \n      timestamp: m.json.timestamp,\n      attachments: attachmentLinks\n    };\n  }),\n  oldestId: oldestId,\n  hasMore: inputItems.length === 100 \n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        -816
+      ],
+      "id": "394ee6da-93b2-4fec-ac60-af3241536361",
+      "name": "Filter Messages"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c4d5bebf-5ca3-41c7-8438-8ae8c7655ab8",
+              "name": "before",
+              "value": "={{ $node[\"Filter Messages\"].json[\"oldestId\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "044380ae-08d4-4ec3-bbcf-3574a7c1edf8",
+              "name": "",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1248,
+        -816
+      ],
+      "id": "305f8733-0797-4970-90c4-cf900cbe1f9a",
+      "name": "Set before"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "documentId": {
+          "__rl": true,
+          "value": "SANITIZED_GOOGLE_DOCUMENT_ID",
+          "mode": "list",
+          "cachedResultName": "[SANITIZED]",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/SANITIZED_GOOGLE_DOCUMENT_ID/edit"
+        },
+        "title": "={{ $json.channelId }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        544,
+        -1088
+      ],
+      "id": "4fae948c-b8e5-4927-b181-dd2f3549e4c0",
+      "name": "Create Sheet",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets OAuth2 API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "SANITIZED_GOOGLE_DOCUMENT_ID",
+          "mode": "list",
+          "cachedResultName": "[SANITIZED]",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/SANITIZED_GOOGLE_DOCUMENT_ID/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $('Set User Info').item.json.channelId }}"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "content": "={{ $json.content }}",
+            "timestamp": "={{ $json.timestamp }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "content",
+              "displayName": "content",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "attachments",
+              "displayName": "attachments",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1248,
+        -624
+      ],
+      "id": "2334099b-4642-402c-84bf-5ba189f5cd1a",
+      "name": "Populate Messages",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "17a54c57-ff4a-4c8a-925d-d5e4887988f6",
+              "name": "before",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        128,
+        -768
+      ],
+      "id": "8fd38560-82c1-4ab7-a44a-dd558e7b7a81",
+      "name": "Init before"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "SANITIZED_GOOGLE_DOCUMENT_ID"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $('Set User Info').item.json.channelId }}",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        768,
+        -1088
+      ],
+      "id": "e8dee5ba-15ac-4cdb-9ec1-02b71fdf0480",
+      "name": "Check If Empty",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets OAuth2 API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "37fe0502-b9fc-4a3a-8bcc-d4a1d99b00e9",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        976,
+        -1264
+      ],
+      "id": "c340cf22-2899-4650-a843-4bf670f4e1a3",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "SANITIZED_GOOGLE_DOCUMENT_ID",
+          "mode": "list",
+          "cachedResultName": "[SANITIZED]",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/SANITIZED_GOOGLE_DOCUMENT_ID/edit"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $('Set User Info').item.json.channelId }}",
+          "mode": "name"
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1152,
+        -1088
+      ],
+      "id": "c2e98609-8f6e-47db-ac37-ea2c86e76c5f",
+      "name": "Clear sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "multipleMethods": true,
+        "path": "00000000-0000-0000-0000-000000000000",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        352,
+        -1360
+      ],
+      "id": "ff898719-8c0a-49e2-a444-cd1d1b9ce0ef",
+      "name": "Webhook",
+      "webhookId": "00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "=<!DOCTYPE html>\n<html>\n<head>\n    <style>\n        body { font-family: sans-serif; display: flex; justify-content: center; padding-top: 50px; background: #f4f7f6; }\n        form { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 300px; }\n        select, button { width: 100%; padding: 10px; margin-top: 10px; border-radius: 4px; border: 1px solid #ccc; }\n        button { background: #007bff; color: white; border: none; cursor: pointer; }\n        button:hover { background: #0056b3; }\n    </style>\n</head>\n<body>\n    <form id=\"discordForm\">\n        <h3>Select Channel</h3>\n        <select id=\"channel\" name=\"channel_id\"></select>\n        <button id=\"submitBtn\" type=\"submit\">Go</button>\n        <div id=\"status\"></div>\n    </form>\n    \n    <script>\n        document.addEventListener('DOMContentLoaded', () => {\n            const data = {{ JSON.stringify($input.all().map(i => i.json)) }};\n            const select = document.getElementById('channel');\n            \n            data.forEach(c => {\n                let opt = document.createElement('option');\n                opt.value = c.id;\n                opt.textContent = c.name;\n                select.appendChild(opt);\n            });\n            \n            document.getElementById('discordForm').addEventListener('submit', function(event) {\n                event.preventDefault(); // THIS IS CRITICAL\n            });\n            \n            document.getElementById('submitBtn').addEventListener('click', async () => {\n                const channelId = document.getElementById('channel').value;\n                const statusDiv = document.getElementById('status');\n                \n                try {\n                    statusDiv.textContent = \"Sending...\";\n                    const response = await fetch(\"https://example.app.n8n.cloud/webhook/00000000-0000-0000-0000-000000000000\", {\n                        method: 'POST',\n                        headers: { 'Content-Type': 'application/json' },\n                        body: JSON.stringify({ channel_id: channelId })\n                    });\n                    \n                    if (response.ok) {\n                        statusDiv.textContent = \"Success! Message sent to Discord.\";\n                    } else {\n                        statusDiv.textContent = \"Error sending message.\";\n                    }\n                } catch (err) {\n                    statusDiv.textContent = \"Network error occurred.\";\n                }\n            });\n        });\n    </script> \n</body>\n</html>",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        784,
+        -1376
+      ],
+      "id": "e5376a02-9979-4f33-9c5e-d6ca2eebf002",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "url": "=https://discord.com/api/v10/guilds/SANITIZED_GUILD_ID/channels",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bot {{ $env.DISCORD_BOT_TOKEN }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        544,
+        -1600
+      ],
+      "id": "b164b540-daa5-4bfc-896e-9c42e7b01c74",
+      "name": "Get Disc Channels",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter items where type is 0 (Discord Guild Text Channel)\nreturn $input.all().filter(item => item.json.type === 0);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        -1600
+      ],
+      "id": "7dd6c726-9761-4aca-8a6a-46b7d3dbe4de",
+      "name": "filter text channels"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Set before",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Populate Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set User Info": {
+      "main": [
+        [
+          {
+            "node": "Create Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Disc Messages": {
+      "main": [
+        [
+          {
+            "node": "Filter Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Messages": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set before": {
+      "main": [
+        [
+          {
+            "node": "Get Disc Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Sheet": {
+      "main": [
+        [
+          {
+            "node": "Check If Empty",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Populate Messages": {
+      "main": [
+        []
+      ]
+    },
+    "Init before": {
+      "main": [
+        [
+          {
+            "node": "Get Disc Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Empty": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Init before",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Clear sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear sheet": {
+      "main": [
+        [
+          {
+            "node": "Init before",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Disc Channels",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set User Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Disc Channels": {
+      "main": [
+        [
+          {
+            "node": "filter text channels",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "filter text channels": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "00000000-0000-0000-0000-000000000000",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "id": "SANITIZED_WORKFLOW_ID",
+  "tags": []
+}
